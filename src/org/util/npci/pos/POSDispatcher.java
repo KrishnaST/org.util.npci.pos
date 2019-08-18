@@ -1,6 +1,5 @@
 package org.util.npci.pos;
 
-import org.util.datautil.TLV;
 import org.util.iso8583.ISO8583Message;
 import org.util.npci.api.ConfigurationNotFoundException;
 import org.util.npci.coreconnect.CoreConfig;
@@ -28,10 +27,6 @@ public final class POSDispatcher extends LogonDispatcher {
 		boolean isDispatched = false;
 		isDispatched = super.dispatch(request);
 		if (!isDispatched) {
-		//	if (IMPSTransactionType.P2A_TRANSACTION.equals(transactionType)) isDispatched = config.schedular.execute(new P2ATransaction(request, this));
-			//else if (IMPSTransactionType.P2A_VERIFICATION.equals(transactionType)) isDispatched = config.schedular.execute(new P2AVerification(request, this));
-		//	else if (IMPSTransactionType.P2P_TRANSACTION.equals(transactionType)) isDispatched = config.schedular.execute(new P2PTransaction(request, this));
-			//else if (IMPSTransactionType.P2P_VERIFICATION.equals(transactionType)) isDispatched = config.schedular.execute(new P2PVerification(request, this));
 		}
 		config.corelogger.info(config.bankId, request.get(37)+" dispatched : "+isDispatched);
 		return isDispatched;
