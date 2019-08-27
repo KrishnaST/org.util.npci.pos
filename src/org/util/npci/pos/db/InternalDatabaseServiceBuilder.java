@@ -10,7 +10,7 @@ public final class InternalDatabaseServiceBuilder extends DatabaseServiceBuilder
 
 	@Override
 	public final List<String> getDatabaseServices() {
-		return List.of("IMPS70");
+		return List.of("POS");
 	}
 
 	@Override
