@@ -33,7 +33,7 @@ public final class ECommerceTransaction extends IssuerTransaction<POSDispatcher>
 			final Account account = dispatcher.databaseService.getAccount(request.get(2), logger);
 			final TLV     de48    = TLV.parse(request.get(48));
 			request.put(48, new TLV().put("051", "POS01").put(CVD_TAG, "M").build());
-			final ISO8583Message duplicate = dispatcher.databaseService.getTransactionByKey(key, logger);
+			final ISO8583Message duplicate = dispatcher.databaseService.getTransaction(key, logger);
 			if (duplicate != null) {
 				logger.info("duplicate transaction");
 				return sendResponseToNPCI(request, ResponseCode.NO_ROUTING_AVAILABLE, logger);
@@ -78,7 +78,7 @@ public final class ECommerceTransaction extends IssuerTransaction<POSDispatcher>
 				logger.info("cbs successful response.");
 				request.put(39, cbsResponse.get(39));
 				request.put(38, cbsResponse.get(38));
-				request.put(102, account.accountNo);
+				request.put(102, account.account15);
 				return sendResponseToNPCI(request, cbsResponse.get(39), logger);
 			} else {
 				logger.info("cbs unsuccessful or validCVV : " + validCVV + " isExpired : " + isExpired);

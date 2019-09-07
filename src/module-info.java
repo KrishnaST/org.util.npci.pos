@@ -1,5 +1,6 @@
 module org.util.npci.pos {
 	
+	requires transitive org.util.hsm;
 	requires transitive org.util.iso8583;
 	requires transitive org.util.iso8583.npci;
 	requires transitive org.util.npci.coreconnect;
@@ -11,5 +12,5 @@ module org.util.npci.pos {
 	requires transitive com.fasterxml.jackson.core;
 	requires transitive com.fasterxml.jackson.databind;
 	requires transitive com.fasterxml.jackson.annotation;
-	requires org.util.hsm;
+	
 }
