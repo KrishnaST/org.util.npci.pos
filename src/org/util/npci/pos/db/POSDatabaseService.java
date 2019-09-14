@@ -28,12 +28,12 @@ public final class POSDatabaseService extends DatabaseService {
 	}
 
 	@Override
-	public final Card getCard(String pan, Logger logger) {
-		try(final Connection connection = dataSource.getConnection();
+	public final Card getCard(final String pan, final Logger logger) {
+		try(final Connection connection = config.dataSource.getConnection();
 			final PreparedStatement ps = connection.prepareStatement("SELECT * FROM D390060 where CardId = ? and CONVERT(VARCHAR, DECRYPTBYKEY(encry_pan , 1, SUBSTRING(LTRIM(RTRIM(CardId)), DATALENGTH(LTRIM(RTRIM(CardId)))-3, 4))) = ?");
 			final ResultSet rs = ResultSetBuilder.getResultSet(ps, PANUtil.getMaskedPAN(pan), pan)){
 			if(rs.next()) {
-				
+				return new Card(0, rs.getInt("Status"), rs.getInt("BadPin"), rs.getDate("ExpDate"), rs.getString("PinOffset"));
 			}
 		} catch (Exception e) {logger.error(e);}
 		return null;
@@ -41,7 +41,7 @@ public final class POSDatabaseService extends DatabaseService {
 
 	private final String getAccountFormatFlag(final String bin, final Logger logger) {
 		String accountFlag = "N";
-		try(final Connection connection = dataSource.getConnection();
+		try(final Connection connection = config.dataSource.getConnection();
 			final PreparedStatement ps = connection.prepareStatement("SELECT ActFormat FROM LOCALBINMASTER WHERE BIN =?");
 			final ResultSet rs = ResultSetBuilder.getResultSet(ps, bin)){
 			if(rs.next()) return rs.getString("ActFormat");
@@ -56,7 +56,7 @@ public final class POSDatabaseService extends DatabaseService {
 		final String accountFormat = getAccountFormatFlag(bin, logger);
 		logger.info("AcctFlag : '"+accountFormat);
 		final char accountFlag = "K".equalsIgnoreCase(accountFormat) ? 'N' : 'L';
-		try(final Connection connection = dataSource.getConnection();
+		try(final Connection connection = config.dataSource.getConnection();
 			final PreparedStatement ps = connection.prepareStatement("SELECT "+accountFlag+"BrCode, PrdAcctId FROM D390061 where CardId = ? and convert(varchar(16), decryptbykey(encry_pan , 1, rtrim(substring(CardId, 13,16)))) = ?");
 			final ResultSet rs = ResultSetBuilder.getResultSet(ps, PANUtil.getMaskedPAN(pan), pan)) {
 			if(rs.next()) {
@@ -71,14 +71,14 @@ public final class POSDatabaseService extends DatabaseService {
 	}
 
 	@Override
-	public final Keys getKeys(String bin, Logger logger) {
-		try(final Connection connection = dataSource.getConnection();
+	public final Keys getKeys(final String bin, final Logger logger) {
+		try(final Connection connection = config.dataSource.getConnection();
 			final PreparedStatement ps = connection.prepareStatement("SELECT * FROM KEYMASTER_POS WHERE ACQ_ID = ?");
 			final ResultSet rs = ResultSetBuilder.getResultSet(ps, bin)){
 			if(rs.next()) {
 				final Keys keys = new Keys();
 				keys.cvk1 = rs.getString("CVK");
-				keys.cvk2 = rs.getString("CVK1");
+				keys.cvk2 = rs.getString("CVK2");
 				keys.pvk = ThalesKey.toThalesKey(rs.getString("PVK"));
 				keys.zpk = ThalesKey.toThalesKey(rs.getString("ZPK"));
 				return keys;
@@ -88,9 +88,9 @@ public final class POSDatabaseService extends DatabaseService {
 	}
 
 	@Override
-	public final Pair<String, Integer> getCBSAddress(String bin, Logger logger) {
+	public final Pair<String, Integer> getCBSAddress(final String bin, final Logger logger) {
 		if(bin == null) return null;
-		try(final Connection connection = dataSource.getConnection();
+		try(final Connection connection = config.dataSource.getConnection();
 			final PreparedStatement ps = connection.prepareStatement("SELECT ISSPOSIP, ISSPOSPORT FROM LOCALBINMASTER WHERE BIN = ?");
 			final AutoCloseable closeable = PseudoClosable.getClosable(ps, bin);
 			final ResultSet rs = ps.executeQuery()){
@@ -102,14 +102,12 @@ public final class POSDatabaseService extends DatabaseService {
 
 	@Override
 	public final boolean checkAndUpdatePOSLimit(String pan, double amount, Logger logger) {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	@Override
 	public final boolean reversePOSLimit(String pan, double amount, Logger logger) {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 }

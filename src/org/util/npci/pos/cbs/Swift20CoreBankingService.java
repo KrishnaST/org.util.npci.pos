@@ -3,6 +3,7 @@ package org.util.npci.pos.cbs;
 import java.util.Set;
 
 import org.util.iso8583.EncoderDecoder;
+import org.util.iso8583.ISO8583LogSupplier;
 import org.util.iso8583.ISO8583Message;
 import org.util.iso8583.format.CBSFormat;
 import org.util.iso8583.format.ISOFormat;
@@ -30,25 +31,25 @@ public final class Swift20CoreBankingService extends CoreBankingService {
 
 	@Override
 	public final ISO8583Message transaction(final ISO8583Message request, final Logger logger) {
+		final ISO8583Message cbsrequest  = request.copy(Set.of(0, 2, 3, 4, 11, 12, 13, 19, 32, 37, 38, 41, 49, 54, 102));
 		try {
-			final ISO8583Message cbsrequest  = request.copy(Set.of(0, 2, 3, 4, 11, 12, 13, 19, 32, 37, 38, 41, 49, 54, 102));
+			CBS_FORMAT.length[41] = 16;
+			logger.info("cbsrequest", new ISO8583LogSupplier(cbsrequest));
 			final ISO8583Message cbsresponse = EncoderDecoder.send(CBS_IP, CBS_PORT, cbsrequest, CBS_FORMAT, config.issuerTimeout * 1000);
-			if(cbsresponse != null) {
-				request.put(54, cbsresponse.get(54));
-				request.put(38, cbsresponse.get(38));
-				request.put(39, cbsresponse.get(39));
-				return request;
-			}
+			logger.info("cbsresponse", new ISO8583LogSupplier(cbsresponse));
+			if(cbsresponse != null) return cbsresponse;
 		} catch (Exception e) {logger.error(e);}
-		request.put(39, ResponseCode.ISSUER_INOPERATIVE);
-		return request;
+		cbsrequest.put(39, ResponseCode.ISSUER_INOPERATIVE);
+		return cbsrequest;
 	}
 
 	@Override
 	public final ISO8583Message reversal(final ISO8583Message request, final Logger logger) {
 		try {
 			final ISO8583Message cbsrequest  = request.copy(Set.of(0, 2, 3, 4, 11, 12, 13, 19, 32, 37, 38, 41, 49, 54, 102));
+			logger.info("cbsrequest", new ISO8583LogSupplier(cbsrequest));
 			final ISO8583Message cbsresponse = EncoderDecoder.send(CBS_IP, CBS_PORT, cbsrequest, CBS_FORMAT, config.issuerTimeout * 1000);
+			logger.info("cbsresponse", new ISO8583LogSupplier(cbsresponse));
 			if(cbsresponse != null) {
 				request.put(38, cbsresponse.get(38));
 				request.put(39, cbsresponse.get(39));

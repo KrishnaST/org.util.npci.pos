@@ -18,4 +18,9 @@ public class Card {
 		this.offset = offset;
 	}
 
+	@Override
+	public String toString() {
+		return "Card [brcode=" + brcode + ", status=" + status + ", badpin=" + badpin + ", expiry=" + expiry + ", offset=" + offset + "]";
+	}
+
 }

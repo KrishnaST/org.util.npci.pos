@@ -10,11 +10,12 @@ public final class InternalDatabaseServiceBuilder extends DatabaseServiceBuilder
 
 	@Override
 	public final List<String> getDatabaseServices() {
-		return List.of("POS");
+		return List.of("SWIFT20");
 	}
 
 	@Override
 	public final DatabaseService build(final CoreConfig config, final POSDispatcher dispatcher) throws ConfigurationNotFoundException {
+		if("SWIFT20".equalsIgnoreCase(config.databaseType)) return new POSDatabaseService(dispatcher);
 		return null;
 	}
 

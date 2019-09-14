@@ -15,7 +15,7 @@ public final class POSDispatcherBuilder extends IssuerDispatcherBuilder {
 	}
 
 	@Override
-	public final IssuerDispatcher build(CoreConfig config) throws ConfigurationNotFoundException {
+	public final IssuerDispatcher build(final CoreConfig config) throws ConfigurationNotFoundException {
 		return new POSDispatcher(config);
 	}
 

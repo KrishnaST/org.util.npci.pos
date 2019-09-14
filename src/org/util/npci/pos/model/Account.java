@@ -13,4 +13,9 @@ public final class Account {
 		this.account32  = account32;
 	}
 
+	@Override
+	public String toString() {
+		return "Account [branchCode=" + branchCode + ", account32=" + account32 + ", account15=" + account15 + "]";
+	}
+	
 }

@@ -5,9 +5,11 @@ import org.util.hsm.api.ThalesResponseCode;
 import org.util.hsm.api.model.HSMResponse;
 import org.util.iso8583.ISO8583Message;
 import org.util.iso8583.ext.ISO8583DateField;
+import org.util.iso8583.ext.PANUtil;
 import org.util.iso8583.npci.ResponseCode;
 import org.util.nanolog.Logger;
 import org.util.npci.coreconnect.issuer.IssuerTransaction;
+import org.util.npci.coreconnect.util.NPCIISOUtil;
 import org.util.npci.pos.POSDispatcher;
 import org.util.npci.pos.model.Account;
 import org.util.npci.pos.model.Card;
@@ -25,29 +27,35 @@ public final class ECommerceTransaction extends IssuerTransaction<POSDispatcher>
 	protected boolean validCVV  = false;
 
 	@Override
-	protected boolean execute(final Logger logger) {
+	protected final boolean execute(final Logger logger) {
 		try {
 			final String key = request.getUniqueKey();
 			logger.info("key : " + key);
 			final Card    card    = dispatcher.databaseService.getCard(request.get(2), logger);
+			logger.info("card : " + card);
 			final Account account = dispatcher.databaseService.getAccount(request.get(2), logger);
+			logger.info("account : " + account);
 			final TLV     de48    = TLV.parse(request.get(48));
 			request.put(48, new TLV().put("051", "POS01").put(CVD_TAG, "M").build());
-			final ISO8583Message duplicate = dispatcher.databaseService.getTransaction(key, logger);
-			if (duplicate != null) {
-				logger.info("duplicate transaction");
-				return sendResponseToNPCI(request, ResponseCode.NO_ROUTING_AVAILABLE, logger);
+			if(account != null) {
+				request.put(102, account.account15);
 			}
-
+			final long txid = dispatcher.databaseService.registerTransaction(request, "ECOM", logger);
 			if (ISO8583DateField.isExpired(request.get(14))) {
 				logger.info("card is expired.");
 				return sendResponseToNPCI(request, ResponseCode.EXPIRED_CARD, logger);
 			} else isExpired = false;
 
-			final Keys keys = dispatcher.databaseService.getKeys(request.get(2), logger);
-
+			final Keys keys = dispatcher.databaseService.getKeys(PANUtil.getBIN(request.get(2)), logger);
+			logger.info("keys : " + keys);
+			if(keys == null) {
+				logger.info("keys not found.");
+				return sendResponseToNPCI(request, ResponseCode.CRYPTOGRAPHIC_ERROR, logger);
+			}
+			
 			final HSMResponse cvvResponse = config.hsmService.cvv().validateCVV(config.hsmConfig, request.get(2), request.get(14), "000", keys.cvk1, keys.cvk2,
 					de48.get("052"), logger);
+			logger.info("cvvResponse : " + cvvResponse);
 			if (cvvResponse.isSuccess) validCVV = true;
 			else if (ThalesResponseCode.FAILURE.equals(cvvResponse.responseCode)) {
 				logger.info("invalid cvv.");
@@ -79,16 +87,21 @@ public final class ECommerceTransaction extends IssuerTransaction<POSDispatcher>
 				request.put(39, cbsResponse.get(39));
 				request.put(38, cbsResponse.get(38));
 				request.put(102, account.account15);
+				dispatcher.databaseService.registerResponse(txid, request, logger);
 				return sendResponseToNPCI(request, cbsResponse.get(39), logger);
 			} else {
 				logger.info("cbs unsuccessful or validCVV : " + validCVV + " isExpired : " + isExpired);
 				dispatcher.databaseService.reversePOSLimit(request.get(2), Double.parseDouble(request.get(4)) / 100.0, logger);
 				return sendResponseToNPCI(request, ResponseCode.SYSTEM_MALFUNCTION, logger);
 			}
-		} catch (Exception e) {
-			logger.info(e);
-		}
+		} catch (Exception e) {logger.info(e);}
 		return false;
 	}
 
+	protected final boolean sendResponseToNPCI(final ISO8583Message response, final String responseCode, final String account, final Logger logger) {
+		request.put(39, responseCode);
+		if (request.get(39) == null) logger.error(new Exception("empty response code"));
+		NPCIISOUtil.removeNotRequiredElements(response);
+		return config.coreconnect.sendResponseToNPCI(request, logger);
+	}
 }
