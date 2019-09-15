@@ -39,7 +39,6 @@ public final class EMVCashAtPosTransaction extends IssuerTransaction<POSDispatch
 			logger.info("card : " + card);
 			final Account account = dispatcher.databaseService.getAccount(request.get(2), logger);
 			logger.info("account : " + account);
-			final TLV     de48    = TLV.parse(request.get(48));
 			final Track2 track2 = Track2.parse(request.get(35));
 			logger.info("track2 : " + track2.buildMaskedTrack2());
 			request.put(48, new TLV().put("051", "POS01").put(CVD_TAG, "M").build());

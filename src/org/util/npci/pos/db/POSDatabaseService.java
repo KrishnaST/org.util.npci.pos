@@ -61,7 +61,7 @@ public final class POSDatabaseService extends DatabaseService {
 			final PreparedStatement ps = connection.prepareStatement("SELECT "+accountFlag+"BrCode, PrdAcctId FROM D390061 where CardId = ? and CONVERT(VARCHAR, DECRYPTBYKEY(encry_pan , 1, SUBSTRING(RTRIM(CardId), DATALENGTH(RTRIM(CardId))-3, 4))) = ?");
 			final ResultSet rs = ResultSetBuilder.getResultSet(ps, PANUtil.getMaskedPAN(pan), pan)) {
 			if(rs.next()) {
-				final Account account = new Account(rs.getInt(accountFlag+"BrCode"), rs.getString("PrdAcctId").trim());
+				final Account account = new Account(rs.getInt(accountFlag+"BrCode"), Strings.trim(rs.getString("PrdAcctId")));
 				if("Y".equalsIgnoreCase(accountFormat)) account.account15 = account.account32;
 				else account.account15 = String.format("%04d", account.branchCode) + account.account32.substring(0, 6) + account.account32.substring(account.account32.length()-16, account.account32.length()-8);
 				return account;
@@ -78,10 +78,10 @@ public final class POSDatabaseService extends DatabaseService {
 			final ResultSet rs = ResultSetBuilder.getResultSet(ps, bin)){
 			if(rs.next()) {
 				final Keys keys = new Keys();
-				keys.cvk1 = rs.getString("CVK");
-				keys.cvk2 = rs.getString("CVK2");
-				keys.pvk = ThalesKey.toThalesKey(rs.getString("PVK"));
-				keys.zpk = ThalesKey.toThalesKey(rs.getString("ZPK"));
+				keys.cvk1 = Strings.trimSpecial(rs.getString("CVK"));
+				keys.cvk2 = Strings.trimSpecial(rs.getString("CVK2"));
+				keys.pvk = ThalesKey.toThalesKey(Strings.trimSpecial(rs.getString("PVK")));
+				keys.zpk = ThalesKey.toThalesKey(Strings.trimSpecial(rs.getString("ZPK")));
 				return keys;
 			}
 		} catch (Exception e) {logger.error(e);}
@@ -95,7 +95,7 @@ public final class POSDatabaseService extends DatabaseService {
 			final PreparedStatement ps = connection.prepareStatement("SELECT ISSPOSIP, ISSPOSPORT FROM LOCALBINMASTER WHERE BIN = ?");
 			final AutoCloseable closeable = PseudoClosable.getClosable(ps, bin);
 			final ResultSet rs = ps.executeQuery()){
-			if(rs.next()) return new Pair<String, Integer>(rs.getString("ISSPOSIP"), rs.getInt("ISSPOSPORT"));
+			if(rs.next()) return new Pair<String, Integer>(Strings.trim(rs.getString("ISSPOSIP")), rs.getInt("ISSPOSPORT"));
 		} catch (Exception e) {logger.error(e);}
 		return null;
 	
@@ -148,7 +148,6 @@ public final class POSDatabaseService extends DatabaseService {
 			final PreparedStatement ps = connection.prepareStatement("UPDATE D390060 SET BadPin = 0 WHERE CardId = ? and CONVERT(VARCHAR, DECRYPTBYKEY(encry_pan , 1, SUBSTRING(RTRIM(CardId), DATALENGTH(RTRIM(CardId))-3, 4))) = ?")){
 			ps.setString(1, PANUtil.getMaskedPAN(pan));
 			ps.setString(2, pan);
-			logger.info("q1");
 			return ps.executeUpdate() > 0;
 		} catch (Exception e) {logger.info(e);}
 		return false;

@@ -11,6 +11,8 @@ import org.util.iso8583.ext.ISO8583DateField;
 import org.util.iso8583.ext.PANUtil;
 import org.util.iso8583.ext.Track2;
 import org.util.iso8583.npci.ResponseCode;
+import org.util.iso8583.npci.de48.DE48Tag;
+import org.util.iso8583.npci.de48.ProductCode;
 import org.util.nanolog.Logger;
 import org.util.npci.coreconnect.issuer.IssuerTransaction;
 import org.util.npci.pos.POSDispatcher;
@@ -20,7 +22,6 @@ import org.util.npci.pos.model.Keys;
 
 public final class MagstripePurchaseTransaction extends IssuerTransaction<POSDispatcher> {
 
-	protected static final String CVD_TAG = "054";
 	protected static final String TYPE    = "IPURCHASE";
 
 	public MagstripePurchaseTransaction(final ISO8583Message request, final POSDispatcher dispatcher) {
@@ -35,7 +36,6 @@ public final class MagstripePurchaseTransaction extends IssuerTransaction<POSDis
 			boolean validPIN  = false;
 
 			final long txId = dispatcher.databaseService.registerTransaction(request, TYPE, logger);
-			
 			final Card card = dispatcher.databaseService.getCard(request.get(2), logger);
 			logger.info(card);
 
@@ -44,7 +44,7 @@ public final class MagstripePurchaseTransaction extends IssuerTransaction<POSDis
 
 			if (track2 == null || card == null) {
 				logger.info("invalid track or card.");
-				request.put(48, new TLV().put("051", "POS01").put(CVD_TAG, "N").build());
+				request.put(48, new TLV().put("051", "POS01").put(DE48Tag.CVD_MATCH_RESULT, "N").build());
 				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.INVALID_CARD, logger);
 			}
 
@@ -53,11 +53,11 @@ public final class MagstripePurchaseTransaction extends IssuerTransaction<POSDis
 			
 			if (account == null || Strings.isNullOrEmpty(account.account15)) {
 				logger.info("invalid account");
-				request.put(48, new TLV().put("051", "POS01").put(CVD_TAG, "N").build());
+				request.put(48, new TLV().put("051", "POS01").put(DE48Tag.CVD_MATCH_RESULT, "N").build());
 				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.DO_NOT_HONOR, logger);
 			}
 
-			request.put(48, new TLV().put("051", "POS01").put(CVD_TAG, "M").build());
+			request.put(48, new TLV().put("051", "POS01").put(DE48Tag.CVD_MATCH_RESULT, "M").build());
 			
 			if (card.status != 1) {
 				String responseCode = ResponseCode.RESTRICTED_CARD_CAPTURE;
@@ -88,7 +88,7 @@ public final class MagstripePurchaseTransaction extends IssuerTransaction<POSDis
 					keys.cvk2, track2.cvv, logger);
 			if (cvvResponse.isSuccess) validCVV = true;
 			else if (ThalesResponseCode.FAILURE.equals(cvvResponse.responseCode)) {
-				request.put(48, new TLV().put("051", "POS01").put(CVD_TAG, "N").build());
+				request.put(48, new TLV().put(DE48Tag.PRODUCT_CODE, ProductCode.POS).put(DE48Tag.CVD_MATCH_RESULT, "N").build());
 				logger.info("invalid cvv.");
 				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.DO_NOT_HONOR, logger);
 			} else {
