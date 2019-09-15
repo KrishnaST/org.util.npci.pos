@@ -17,12 +17,12 @@ import org.util.npci.pos.model.Account;
 import org.util.npci.pos.model.Card;
 import org.util.npci.pos.model.Keys;
 
-public final class FullEMVCashAtPosTransaction extends IssuerTransaction<POSDispatcher> {
+public final class EMVCashAtPosTransaction extends IssuerTransaction<POSDispatcher> {
 
 	protected static final String CVD_TAG = "054";
 	protected static final String TYPE    = "PURCHASE";
 
-	public FullEMVCashAtPosTransaction(final ISO8583Message request, final POSDispatcher dispatcher) {
+	public EMVCashAtPosTransaction(final ISO8583Message request, final POSDispatcher dispatcher) {
 		super(request, dispatcher);
 	}
 

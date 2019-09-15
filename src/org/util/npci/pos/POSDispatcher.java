@@ -5,21 +5,21 @@ import org.util.iso8583.npci.CurrencyCode;
 import org.util.iso8583.npci.MTI;
 import org.util.iso8583.npci.constants.PANEntryMode;
 import org.util.iso8583.npci.constants.ProcessingCode;
+import org.util.nanolog.Logger;
 import org.util.npci.api.ConfigurationNotFoundException;
 import org.util.npci.coreconnect.CoreConfig;
 import org.util.npci.coreconnect.CorePropertyName;
 import org.util.npci.coreconnect.issuer.LogonDispatcher;
+import org.util.npci.coreconnect.util.NPCIISOUtil;
 import org.util.npci.pos.cbs.CoreBankingService;
 import org.util.npci.pos.cbs.CoreBankingServiceBuilder;
 import org.util.npci.pos.db.DatabaseService;
 import org.util.npci.pos.db.DatabaseServiceBuilder;
 import org.util.npci.pos.transaction.ECommerceTransaction;
-import org.util.npci.pos.transaction.FullEMVCashAtPosTransaction;
-import org.util.npci.pos.transaction.FullEMVPurchaseTransaction;
+import org.util.npci.pos.transaction.EMVCashAtPosTransaction;
+import org.util.npci.pos.transaction.EMVPurchaseTransaction;
 import org.util.npci.pos.transaction.MagstripeCashAtPosTransaction;
 import org.util.npci.pos.transaction.MagstripePurchaseTransaction;
-import org.util.npci.pos.transaction.QuickEMVCashAtPosTransaction;
-import org.util.npci.pos.transaction.QuickEMVPurchaseTransaction;
 import org.util.npci.pos.transaction.ReversalTransaction;
 
 public final class POSDispatcher extends LogonDispatcher {
@@ -48,23 +48,19 @@ public final class POSDispatcher extends LogonDispatcher {
 				config.corelogger.error("currency not supported : "+request.get(19)+" : "+request.get(49));
 			}
 			else if (MTI.TRANS_REQUEST.equals(mti)) {
-				if (ProcessingCode.POS_PURCHASE.equals(pcode)) {
+				if (ProcessingCode.POS_PURCHASE.equals(pcode) || ProcessingCode.PURCHASE_CASHBACK.equals(pcode)) {
 					if (PANEntryMode.ECOMMERCE.equals(entrymode)) 
 						isDispatched = config.schedular.execute(new ECommerceTransaction(request, this));
 					else if (PANEntryMode.FULL_MAGSTRIPE.equals(entrymode) || PANEntryMode.MAG_STRIPE_READ.equals(entrymode))
 						isDispatched = config.schedular.execute(new MagstripePurchaseTransaction(request, this));
-					else if (PANEntryMode.ICC.equals(entrymode) && isFullEMV)
-						isDispatched = config.schedular.execute(new FullEMVPurchaseTransaction(request, this));
-					else if (PANEntryMode.ICC.equals(entrymode) && !isFullEMV)
-						isDispatched = config.schedular.execute(new QuickEMVPurchaseTransaction(request, this));
+					else if (PANEntryMode.ICC.equals(entrymode))
+						isDispatched = config.schedular.execute(new EMVPurchaseTransaction(request, this));
 				}
 				else if (ProcessingCode.CASH_ATM_POS.equals(pcode)) {
 					if (PANEntryMode.FULL_MAGSTRIPE.equals(entrymode) || PANEntryMode.MAG_STRIPE_READ.equals(entrymode))
 						isDispatched = config.schedular.execute(new MagstripeCashAtPosTransaction(request, this));
-					else if (PANEntryMode.ICC.equals(entrymode) && isFullEMV)
-						isDispatched = config.schedular.execute(new FullEMVCashAtPosTransaction(request, this));
-					else if (PANEntryMode.ICC.equals(entrymode) && !isFullEMV)
-						isDispatched = config.schedular.execute(new QuickEMVCashAtPosTransaction(request, this));
+					else if (PANEntryMode.ICC.equals(entrymode))
+						isDispatched = config.schedular.execute(new EMVCashAtPosTransaction(request, this));
 				}
 			} else if (MTI.ISS_REVERSAL_REQUEST.equals(mti)) {
 				isDispatched = config.schedular.execute(new ReversalTransaction(request, this));
@@ -74,4 +70,13 @@ public final class POSDispatcher extends LogonDispatcher {
 		return isDispatched;
 	}
 
+	
+	public final boolean sendResponseToNPCI(final long id, final ISO8583Message response, final String responseCode, final Logger logger) {
+		response.put(39, responseCode);
+		if (response.get(39) == null) logger.error(new Exception("empty response code"));
+		NPCIISOUtil.removeNotRequiredElements(response);
+		final boolean isResponseRegistered = databaseService.registerResponse(id, response, logger);
+		logger.info("response registered for id : "+id+" : "+isResponseRegistered);
+		return config.coreconnect.sendResponseToNPCI(response, logger);
+	}
 }

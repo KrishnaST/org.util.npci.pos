@@ -31,4 +31,8 @@ public abstract class DatabaseService extends CoreDatabaseService {
 	
 	public abstract boolean reversePOSLimit(final String pan, final double amount, final Logger logger);
 
+	public abstract boolean updateBadPin(final String pan, final Logger logger);
+	
+	public abstract boolean clearBadPin(final String pan, final Logger logger);
+	
 }

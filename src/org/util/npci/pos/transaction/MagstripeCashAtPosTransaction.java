@@ -117,9 +117,7 @@ public final class MagstripeCashAtPosTransaction extends IssuerTransaction<POSDi
 				logger.info("transaction failed. response registered : " + Boolean.toString(isregistered));
 				return sendResponseToNPCI(request, ResponseCode.SYSTEM_MALFUNCTION, logger);
 			}
-		} catch (Exception e) {
-			logger.info(e);
-		}
+		} catch (Exception e) {logger.info(e);}
 		return false;
 	}
 
