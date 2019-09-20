@@ -1,5 +1,7 @@
 package org.util.npci.pos.cbs;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.util.Set;
 
 import org.util.iso8583.EncoderDecoder;
@@ -38,7 +40,10 @@ public final class Swift20CoreBankingService extends CoreBankingService {
 			final ISO8583Message cbsresponse = EncoderDecoder.send(CBS_IP, CBS_PORT, cbsrequest, CBS_FORMAT, config.issuerTimeout * 1000);
 			logger.info("cbsresponse", new ISO8583LogSupplier(cbsresponse));
 			if(cbsresponse != null) return cbsresponse;
-		} catch (Exception e) {logger.error(e);}
+		}
+		catch (ConnectException e) {logger.error("cbs down. check connectivity with "+CBS_IP+":"+CBS_PORT);}
+		catch (SocketTimeoutException e) {logger.error("cbs down. no response from "+CBS_IP+":"+CBS_PORT);}
+		catch (Exception e) {logger.error(e);}
 		cbsrequest.put(39, ResponseCode.ISSUER_INOPERATIVE);
 		return cbsrequest;
 	}
@@ -55,7 +60,10 @@ public final class Swift20CoreBankingService extends CoreBankingService {
 				request.put(39, cbsresponse.get(39));
 				return request;
 			}
-		} catch (Exception e) {logger.error(e);}
+		} 
+		catch (ConnectException e) {logger.error("cbs down. check connectivity with "+CBS_IP+":"+CBS_PORT);}
+		catch (SocketTimeoutException e) {logger.error("cbs down. no response from "+CBS_IP+":"+CBS_PORT);}
+		catch (Exception e) {logger.error(e);}
 		request.put(39, ResponseCode.ISSUER_INOPERATIVE);
 		return request;
 	}

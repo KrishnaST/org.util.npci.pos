@@ -75,7 +75,7 @@ public final class POSDispatcher extends LogonDispatcher {
 		response.put(39, responseCode);
 		if (response.get(39) == null) logger.error(new Exception("empty response code"));
 		NPCIISOUtil.removeNotRequiredElements(response);
-		final boolean isResponseRegistered = databaseService.registerResponse(id, response, logger);
+		final boolean isResponseRegistered = databaseService.registerPOSResponse(id, response, logger);
 		logger.info("response registered for id : "+id+" : "+isResponseRegistered);
 		return config.coreconnect.sendResponseToNPCI(response, logger);
 	}

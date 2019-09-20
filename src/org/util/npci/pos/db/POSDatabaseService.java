@@ -3,6 +3,7 @@ package org.util.npci.pos.db;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 
 import org.util.datautil.Pair;
 import org.util.datautil.Strings;
@@ -11,6 +12,7 @@ import org.util.datautil.db.PseudoClosable;
 import org.util.datautil.db.ResultSetBuilder;
 import org.util.iso8583.ISO8583Message;
 import org.util.iso8583.ext.PANUtil;
+import org.util.iso8583.npci.MTI;
 import org.util.nanolog.Logger;
 import org.util.npci.pos.POSDispatcher;
 import org.util.npci.pos.model.Account;
@@ -29,6 +31,26 @@ public final class POSDatabaseService extends DatabaseService {
 		return "SWIFT20";
 	}
 
+	@Override
+	public final boolean isBankCard(final String pan, final Logger logger) {
+		try(final Connection connection = config.dataSource.getConnection();
+			final PreparedStatement ps = connection.prepareStatement("SELECT TOP(1) 'EXISTS' FROM LOCALBINMASTER WHERE BIN = ? AND BANKCD = ?");
+			final ResultSet rs = ResultSetBuilder.getResultSet(ps, PANUtil.getBIN(pan), config.bankId)){
+			if(rs.next()) return true;
+		} catch (Exception e) {logger.error(e);}
+		return false;
+	}
+	
+	@Override
+	public final boolean isEcommerceSuccess(final String tran_id, final Logger logger) {
+		try(final Connection connection = config.dataSource.getConnection();
+			final PreparedStatement ps = connection.prepareStatement("SELECT CASE WHEN redirect_errorcode = 'ACCU000' THEN convert(BIT, 1) ELSE convert(BIT, 0) END AS TRAN_STATUS FROM ETRANSACTION WHERE tran_id = ?");
+			final ResultSet rs = ResultSetBuilder.getResultSet(ps, tran_id)){
+			if(rs.next()) return rs.getBoolean("TRAN_STATUS");
+		} catch (Exception e) {logger.error(e);}
+		return false;
+	}
+	
 	@Override
 	public final Card getCard(final String pan, final Logger logger) {
 		try(final Connection connection = config.dataSource.getConnection();
@@ -132,6 +154,7 @@ public final class POSDatabaseService extends DatabaseService {
 		return true;
 	}
 
+	@Override
 	public final boolean updateBadPin(final String pan, final Logger logger){
 		try(final Connection connection = config.dataSource.getConnection();
 			final PreparedStatement ps = connection.prepareStatement("UPDATE D390060 SET BadPin = BadPin + 1,  Status = CASE WHEN (BadPin >= 2) THEN 2 ELSE Status END WHERE CardId = ? and CONVERT(VARCHAR, DECRYPTBYKEY(encry_pan , 1, SUBSTRING(LTRIM(RTRIM(CardId)), DATALENGTH(LTRIM(RTRIM(CardId)))-3, 4))) = ?")){
@@ -143,6 +166,7 @@ public final class POSDatabaseService extends DatabaseService {
 
 	}
 	
+	@Override
 	public final boolean clearBadPin(final String pan, final Logger logger){
 		try(final Connection connection = config.dataSource.getConnection();
 			final PreparedStatement ps = connection.prepareStatement("UPDATE D390060 SET BadPin = 0 WHERE CardId = ? and CONVERT(VARCHAR, DECRYPTBYKEY(encry_pan , 1, SUBSTRING(RTRIM(CardId), DATALENGTH(RTRIM(CardId))-3, 4))) = ?")){
@@ -154,8 +178,17 @@ public final class POSDatabaseService extends DatabaseService {
 	}
 	
 	@Override
-	public final boolean registerResponse(final long id, final ISO8583Message response, final Logger logger) {
-		if (isdisabled || id == 0 || Strings.isNullOrEmpty(txTableName)) return false;
+	public final long registerPOSRequest(final ISO8583Message request, final String type,  final Logger logger) {
+		if (isdisabled || Strings.isNullOrEmpty(txTableName)) return registerLegacyRequest(request, logger) ? 0 : 0;
+		try{
+			return super.registerTransaction(request, type, logger);
+		} 
+		finally {registerLegacyRequest(request, logger);}
+	}
+
+	@Override
+	public final boolean registerPOSResponse(final long id, final ISO8583Message response, final Logger logger) {
+		if (isdisabled || id == 0 || Strings.isNullOrEmpty(txTableName)) return registerLegacyResponse(response, logger);
 		try(final Connection con = config.dataSource.getConnection();
 			final PreparedStatement ps = con.prepareStatement("UPDATE " + txTableName + " SET R039 = ?, R038 = ?, F102 = ?, RXTIME = GETDATE() WHERE TXID = ?")) {
 			ps.setString(1, response.get(39));
@@ -164,7 +197,48 @@ public final class POSDatabaseService extends DatabaseService {
 			ps.setLong(4, id);
 			return ps.executeUpdate() > 0;
 		} catch (final Exception e) {logger.error(e);}
+		finally {registerLegacyResponse(response, logger);}
 		return false;
 	}
+
+	@Override
+	public final boolean registerLegacyRequest(final ISO8583Message request, final Logger logger) {
+		if(request == null) return false;
+		try(final Connection connection = config.dataSource.getConnection();
+			final PreparedStatement ps = connection.prepareStatement("INSERT INTO ISOREQUEST_MON (ATMID, TRANSACTIONDATE, PAN, PROCESSINGCODE, AMOUNT, TRANSACTIONDATETIME, ACQUIRINGINSTIDCODE, RETRIEVALREFERENCENUMBER, ATMLOCATION, CURRENCYCODE, MSGTYPE, encry_pan, BANKCD ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ENCRYPTBYKEY(key_guid('sk_card'), ?, 1, ?), ?)")){
+			ps.setString(1, request.get(41));
+			ps.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+			ps.setString(3, PANUtil.getMaskedPAN(request.get(2)));
+			ps.setString(4, request.get(3));
+			ps.setString(5, request.get(4));
+			ps.setString(6, request.get(7));
+			ps.setString(7, request.get(32));
+			ps.setString(8, request.get(37));
+			ps.setString(9, request.get(43));
+			ps.setString(10, request.get(49));
+			ps.setString(11, request.get(0));
+			ps.setBytes(12, request.get(2).getBytes());
+			ps.setBytes(13, getLast4Chars(request.get(2)).getBytes());
+			ps.setString(14, config.bankId);
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {logger.error(e);}
+		return false;
+	}
+
+	@Override
+	public final boolean registerLegacyResponse(final ISO8583Message response, final Logger logger) {
+		if(response == null) return false;
+		try(final Connection connection = config.dataSource.getConnection();
+			final PreparedStatement ps = connection.prepareStatement("INSERT INTO ISORESPONSE_MON(ATMID, TRANSACTIONDATE, TRANSACTIONRETRIEVALNUMBER, RESPONSECODE, MSGTYPE) VALUES (?,?,?,?,?)")){
+			ps.setString(1, response.get(41));
+			ps.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+			ps.setString(3, response.get(37));
+			ps.setString(4, response.get(39));
+			ps.setString(5, MTI.getRequestMTI(response.get(0)));
+			return ps.executeUpdate() > 0;
+		} catch (Exception e) {logger.error(e);}
+		return false;
+	}
+	
 }
 

@@ -35,19 +35,28 @@ public final class MagstripePurchaseTransaction extends IssuerTransaction<POSDis
 			boolean validCVV  = false;
 			boolean validPIN  = false;
 
-			final long txId = dispatcher.databaseService.registerTransaction(request, TYPE, logger);
+			final long txId = dispatcher.databaseService.registerPOSRequest(request, TYPE, logger);
+			logger.info("transaction id", Long.toString(txId));
+			
 			final Card card = dispatcher.databaseService.getCard(request.get(2), logger);
 			logger.info(card);
 
 			final Track2 track2 = Track2.parse(request.get(35));
 			logger.info("track2", track2 != null ? track2.buildMaskedTrack2() : null);
-
+			
 			if (track2 == null || card == null) {
 				logger.info("invalid track or card.");
 				request.put(48, new TLV().put("051", "POS01").put(DE48Tag.CVD_MATCH_RESULT, "N").build());
 				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.INVALID_CARD, logger);
 			}
 
+			final boolean isBankCard = dispatcher.databaseService.isBankCard(request.get(2), logger);
+			if (!isBankCard) {
+				logger.info("card does not belong to this bank.");
+				request.put(48, new TLV().put("051", "POS01").put(DE48Tag.CVD_MATCH_RESULT, "N").build());
+				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.INVALID_CARD, logger);
+			}
+			
 			final Account account = dispatcher.databaseService.getAccount(request.get(2), logger);
 			logger.info(account);
 			
@@ -122,7 +131,7 @@ public final class MagstripePurchaseTransaction extends IssuerTransaction<POSDis
 				request.put(39, cbsresponse.get(39));
 				request.put(38, cbsresponse.get(38));
 				request.put(102, account.account15);
-				logger.info("cbs successful response.");
+				logger.info("successful at cbs & valid pin & valid cvv & not expired. successful transaction");
 				return dispatcher.sendResponseToNPCI(txId, request, cbsresponse.get(39), logger);
 			} else if(!ResponseCode.SUCCESS.equals(cbsresponse.get(39))) {
 				logger.info("transaction declined at CBS.");
