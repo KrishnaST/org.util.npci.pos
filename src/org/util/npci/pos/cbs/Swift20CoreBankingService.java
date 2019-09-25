@@ -50,22 +50,22 @@ public final class Swift20CoreBankingService extends CoreBankingService {
 
 	@Override
 	public final ISO8583Message reversal(final ISO8583Message request, final Logger logger) {
+		final ISO8583Message cbsrequest  = request.copy(Set.of(0, 2, 3, 4, 11, 12, 13, 19, 32, 37, 38, 41, 49, 54, 102));
 		try {
-			final ISO8583Message cbsrequest  = request.copy(Set.of(0, 2, 3, 4, 11, 12, 13, 19, 32, 37, 38, 41, 49, 54, 102));
 			logger.info("cbsrequest", new ISO8583LogSupplier(cbsrequest));
 			final ISO8583Message cbsresponse = EncoderDecoder.send(CBS_IP, CBS_PORT, cbsrequest, CBS_FORMAT, config.issuerTimeout * 1000);
 			logger.info("cbsresponse", new ISO8583LogSupplier(cbsresponse));
-			if(cbsresponse != null) {
-				request.put(38, cbsresponse.get(38));
-				request.put(39, cbsresponse.get(39));
-				return request;
+			if(cbsresponse == null) {
+				cbsrequest.put(39, ResponseCode.ISSUER_INOPERATIVE);
+				return cbsrequest;
 			}
+			else return cbsresponse;
 		} 
 		catch (ConnectException e) {logger.error("cbs down. check connectivity with "+CBS_IP+":"+CBS_PORT);}
 		catch (SocketTimeoutException e) {logger.error("cbs down. no response from "+CBS_IP+":"+CBS_PORT);}
 		catch (Exception e) {logger.error(e);}
-		request.put(39, ResponseCode.ISSUER_INOPERATIVE);
-		return request;
+		cbsrequest.put(39, ResponseCode.ISSUER_INOPERATIVE);
+		return cbsrequest;
 	}
 	
 	/**

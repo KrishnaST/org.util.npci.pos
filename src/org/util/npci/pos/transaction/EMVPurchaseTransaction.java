@@ -94,7 +94,7 @@ public final class EMVPurchaseTransaction extends IssuerTransaction<POSDispatche
 				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.INVALID_CARD, logger);
 			}
 			
-			final HSMResponse cvvResponse = config.hsmService.cvv().validateCVV(config.hsmConfig, request.get(2), track2.expiry, track2.servicecode, keys.cvk1,
+			final HSMResponse cvvResponse = config.hsmService.cvv().validateCVV(config.hsmConfig, request.get(2), track2.expiry, "999", keys.cvk1,
 					keys.cvk2, track2.cvv, logger);
 			if (cvvResponse.isSuccess) validCVV = true;
 			else if (ThalesResponseCode.FAILURE.equals(cvvResponse.responseCode)) {

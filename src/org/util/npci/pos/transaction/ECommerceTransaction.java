@@ -34,6 +34,9 @@ public final class ECommerceTransaction extends IssuerTransaction<POSDispatcher>
 			final long txId = dispatcher.databaseService.registerTransaction(request, TYPE, logger);
 			final TLV  de48 = TLV.parse(request.get(48));
 
+			final String TRAN_ID = de48.get(DE48Tag.ECOMMERCE_TRANSACTION_ID);
+			logger.info("TRAN_ID", TRAN_ID);
+			
 			final Card card = dispatcher.databaseService.getCard(request.get(2), logger);
 			logger.info(card);
 
@@ -50,10 +53,10 @@ public final class ECommerceTransaction extends IssuerTransaction<POSDispatcher>
 				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.INVALID_CARD, logger);
 			}
 			
-			final boolean iasResult = dispatcher.databaseService.isEcommerceSuccess(de48.get(DE48Tag.ECOMMERCE_TRANSACTION_ID), logger);
+			final boolean iasResult = dispatcher.databaseService.isEcommerceSuccess(TRAN_ID, logger);
 			
 			if (!iasResult) {
-				logger.info("not successfulo at ias server.");
+				logger.info("not successful at ias server.");
 				request.put(48, new TLV().put("051", "POS01").put(DE48Tag.CVD2_MATCH_RESULT, "N").build());
 				return dispatcher.sendResponseToNPCI(txId, request, ResponseCode.ECOMMERCE_DECLINE, logger);
 			}

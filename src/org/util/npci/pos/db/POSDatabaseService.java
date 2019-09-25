@@ -179,7 +179,7 @@ public final class POSDatabaseService extends DatabaseService {
 	
 	@Override
 	public final long registerPOSRequest(final ISO8583Message request, final String type,  final Logger logger) {
-		if (isdisabled || Strings.isNullOrEmpty(txTableName)) return registerLegacyRequest(request, logger) ? 0 : 0;
+		if (isdisabled || Strings.isNullOrEmpty(TX_TABLE_NAME)) return registerLegacyRequest(request, logger) ? 0 : 0;
 		try{
 			return super.registerTransaction(request, type, logger);
 		} 
@@ -188,9 +188,9 @@ public final class POSDatabaseService extends DatabaseService {
 
 	@Override
 	public final boolean registerPOSResponse(final long id, final ISO8583Message response, final Logger logger) {
-		if (isdisabled || id == 0 || Strings.isNullOrEmpty(txTableName)) return registerLegacyResponse(response, logger);
+		if (isdisabled || id == 0 || Strings.isNullOrEmpty(TX_TABLE_NAME)) return registerLegacyResponse(response, logger);
 		try(final Connection con = config.dataSource.getConnection();
-			final PreparedStatement ps = con.prepareStatement("UPDATE " + txTableName + " SET R039 = ?, R038 = ?, F102 = ?, RXTIME = GETDATE() WHERE TXID = ?")) {
+			final PreparedStatement ps = con.prepareStatement("UPDATE " + TX_TABLE_NAME + " SET R039 = ?, R038 = ?, F102 = ?, RXTIME = GETDATE() WHERE TXID = ?")) {
 			ps.setString(1, response.get(39));
 			ps.setString(2, response.get(38));
 			ps.setString(3, response.get(102));
